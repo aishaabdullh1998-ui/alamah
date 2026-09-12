@@ -34,9 +34,10 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 COOKIE_NAME = "imla_session"
 MAX_BODY = 12 * 1024 * 1024
 
-# بايثون لا يعرف أنواع الخطوط الحديثة افتراضيًا
-FONT_TYPES = {".woff2": "font/woff2", ".woff": "font/woff",
-              ".ttf": "font/ttf", ".otf": "font/otf"}
+# أنواع لا يعرفها mimetypes على كل الأنظمة
+EXTRA_TYPES = {".woff2": "font/woff2", ".woff": "font/woff",
+               ".ttf": "font/ttf", ".otf": "font/otf",
+               ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".ogg": "audio/ogg"}
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip()
@@ -573,14 +574,16 @@ def serve_static(path):
     full = os.path.normpath(os.path.join(STATIC_DIR, rel))
     if not full.startswith(STATIC_DIR) or not os.path.isfile(full):
         return "404 Not Found", [("Content-Type", "text/plain; charset=utf-8")], b"404"
-    ctype = mimetypes.guess_type(full)[0] or FONT_TYPES.get(
-        os.path.splitext(full)[1].lower(), "application/octet-stream")
+    ext = os.path.splitext(full)[1].lower()
+    ctype = EXTRA_TYPES.get(ext) or mimetypes.guess_type(full)[0] or "application/octet-stream"
     if ctype.startswith("text/") or ctype in ("application/javascript",
                                               "text/javascript", "image/svg+xml"):
         ctype += "; charset=utf-8"
+    # ملفات الصوت ثابتة وكثيرة: تُحفظ في المتصفح يومًا كاملاً
+    cache = "public, max-age=86400" if rel.startswith("audio/") and ext != ".json" else "no-cache"
     with open(full, "rb") as f:
         return "200 OK", [("Content-Type", ctype),
-                          ("Cache-Control", "no-cache")], f.read()
+                          ("Cache-Control", cache)], f.read()
 
 
 def serve_tts(req, conn):
